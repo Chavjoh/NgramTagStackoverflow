@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 
+import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -88,13 +89,13 @@ public class StackoverflowXMLInputFormat extends
 		
 		@Override
 		public boolean nextKeyValue() throws IOException, InterruptedException {
+			if (key == null) {
+				key = new LongWritable();
+			}
 			if (value == null) {
 				value = new StackoverflowPost(); 
 			} else {
 				value.reset();
-			}
-			if (key == null) {
-				key = new LongWritable();
 			}
 			boolean newPost = readUntilMatch(startTag, false); // Find the post
 																// start
@@ -175,8 +176,8 @@ public class StackoverflowXMLInputFormat extends
 		}
 
 		private String getString(byte[] bytes) {
-			// return StringEscapeUtils.unescapeXml(new String(bytes));
-			return new String(bytes);
+			return StringEscapeUtils.unescapeXml(new String(bytes));
+//			return new String(bytes);
 		}
 
 		private Date getDate(byte[] bytes) {

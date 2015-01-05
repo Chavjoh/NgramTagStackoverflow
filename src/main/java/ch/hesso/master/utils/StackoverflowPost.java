@@ -204,19 +204,60 @@ public class StackoverflowPost implements
 		return Integer.compare(id, o.id);
 	}
 
+
+
 	@Override
 	public String toString() {
-		return "StackoverflowPost [id=" + id + ", question=" + question
-				+ ", acceptedAnswerId=" + acceptedAnswerId + ", parentID="
-				+ parentID + ", creationDate=" + creationDate + ", score="
-				+ score + ", viewCount=" + viewCount + ", body=" + body
-				+ ", ownerUserId=" + ownerUserId + ", lastEditorUserId="
-				+ lastEditorUserId + ", lastEditorDisplayName="
-				+ lastEditorDisplayName + ", lastEditDate=" + lastEditDate
-				+ ", lastActivityDate=" + lastActivityDate + ", title=" + title
-				+ ", tags=" + tags + ", answerCount=" + answerCount
-				+ ", commentCount=" + commentCount + ", favoriteCount="
-				+ favoriteCount + "]";
+		StringBuilder builder = new StringBuilder();
+		builder.append("StackoverflowPost [id=");
+		builder.append(id);
+		builder.append(", question=");
+		builder.append(question);
+		
+		builder.append(", creationDate=");
+		builder.append(creationDate);
+		builder.append(", score=");
+		builder.append(score);
+		builder.append(", body=");
+		builder.append(body);
+		builder.append(", ownerUserId=");
+		builder.append(ownerUserId);
+		builder.append(", ownerDisplayName=");
+		builder.append(ownerDisplayName);
+		builder.append(", lastEditorUserId=");
+		builder.append(lastEditorUserId);
+		builder.append(", lastEditorDisplayName=");
+		builder.append(lastEditorDisplayName);
+		builder.append(", lastEditDate=");
+		builder.append(lastEditDate);
+		builder.append(", lastActivityDate=");
+		builder.append(lastActivityDate);
+		builder.append(", communityOwnedDate=");
+		builder.append(communityOwnedDate);
+		builder.append(", commentCount=");
+		builder.append(commentCount);
+		builder.append(", favoriteCount=");
+		builder.append(favoriteCount);
+		if (question) {
+			builder.append(", acceptedAnswerId=");
+			builder.append(acceptedAnswerId);
+			builder.append(", viewCount=");
+			builder.append(viewCount);
+			builder.append(", title=");
+			builder.append(title);
+			builder.append(", tags=");
+			builder.append(tags);
+			builder.append(", answerCount=");
+			builder.append(answerCount);
+			builder.append(", closedDate=");
+			builder.append(closedDate);
+		}
+		else {
+			builder.append(", parentID=");
+			builder.append(parentID);
+		}
+		builder.append("]");
+		return builder.toString();
 	}
 
 	@Override
@@ -369,7 +410,8 @@ public class StackoverflowPost implements
 	}
 
 	public void setTags(String tags) {
-		this.tags.addAll(Arrays.asList(tags.split(" ")));
+		System.out.println(tags);
+		this.tags.addAll(Arrays.asList(tags.substring(1, tags.length() - 1).split("><")));
 	}
 
 	public void addTag(String tag) {
