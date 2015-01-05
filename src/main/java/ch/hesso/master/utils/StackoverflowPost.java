@@ -4,15 +4,17 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.lang.Integer;
 
 import org.apache.hadoop.io.WritableComparable;
 
-public class StackoverflowPost implements WritableComparable<StackoverflowPost>, Iterable<String>, Comparable<StackoverflowPost> {
-	
-	private static final double EPSILON = 1e-8;
+public class StackoverflowPost implements
+		WritableComparable<StackoverflowPost>, Iterable<String>,
+		Comparable<StackoverflowPost> {
 
 	private int id;
 	private boolean question;
@@ -23,16 +25,23 @@ public class StackoverflowPost implements WritableComparable<StackoverflowPost>,
 	private int viewCount; // Only for question post
 	private String body;
 	private int ownerUserId;
+	private String ownerDisplayName;
 	private int lastEditorUserId;
 	private String lastEditorDisplayName;
 	private Date lastEditDate;
 	private Date lastActivityDate;
+	private Date closedDate;
+	private Date communityOwnedDate;
 	private String title; // Only for question post
 	private List<String> tags; // Only for question post
 	private int answerCount; // Only for question post
 	private int commentCount;
 	private int favoriteCount;
-	 
+
+	public StackoverflowPost() {
+		reset();
+	}
+
 	public StackoverflowPost(boolean question) {
 		this.question = question;
 		if (question) {
@@ -59,10 +68,60 @@ public class StackoverflowPost implements WritableComparable<StackoverflowPost>,
 			title = other.title;
 			tags.addAll(other.tags);
 			answerCount = other.answerCount;
-		}
-		else {
+		} else {
 			parentID = other.parentID;
 		}
+	}
+
+	public void reset() {
+		id = -1;
+		question = false;
+		acceptedAnswerId = -1;
+		parentID = -1;
+		if (creationDate == null) {
+			creationDate = new Date(0);
+		} else {
+			creationDate.setTime(0);
+			;
+		}
+		score = -1;
+		viewCount = -1;
+		body = "";
+		ownerUserId = -1;
+		ownerDisplayName = "";
+		lastEditorUserId = -1;
+		lastEditorDisplayName = "";
+		if (lastEditDate == null) {
+			lastEditDate = new Date(0);
+		} else {
+			lastEditDate.setTime(0);
+			;
+		}
+		if (lastActivityDate == null) {
+			lastActivityDate = new Date(0);
+		} else {
+			lastActivityDate.setTime(0);
+			;
+		}
+		if (closedDate == null) {
+			closedDate = new Date(0);
+		} else {
+			closedDate.setTime(0);
+		}
+		if (communityOwnedDate == null) {
+			communityOwnedDate = new Date(0);
+		} else {
+			communityOwnedDate.setTime(0);
+		}
+		title = "";
+		if (tags == null) {
+			this.tags = new ArrayList<String>();
+		} else {
+			tags.clear();
+		}
+		answerCount = -1;
+		commentCount = -1;
+		favoriteCount = -1;
 	}
 
 	public void readFields(DataInput in) throws IOException {
@@ -72,10 +131,12 @@ public class StackoverflowPost implements WritableComparable<StackoverflowPost>,
 		score = in.readInt();
 		body = in.readUTF();
 		ownerUserId = in.readInt();
+		ownerDisplayName = in.readUTF();
 		lastEditorUserId = in.readInt();
 		lastEditorDisplayName = in.readUTF();
 		lastEditDate = new Date(in.readLong());
 		lastActivityDate = new Date(in.readLong());
+		communityOwnedDate = new Date(in.readLong());
 		commentCount = in.readInt();
 		favoriteCount = in.readInt();
 		if (question) {
@@ -88,8 +149,8 @@ public class StackoverflowPost implements WritableComparable<StackoverflowPost>,
 				tags.add(in.readUTF());
 			}
 			answerCount = in.readInt();
-		}
-		else {
+			closedDate = new Date(in.readLong());
+		} else {
 			parentID = in.readInt();
 		}
 	}
@@ -101,10 +162,12 @@ public class StackoverflowPost implements WritableComparable<StackoverflowPost>,
 		out.writeInt(score);
 		out.writeUTF(body);
 		out.writeInt(ownerUserId);
+		out.writeUTF(ownerDisplayName);
 		out.writeInt(lastEditorUserId);
 		out.writeUTF(lastEditorDisplayName);
 		out.writeLong(lastEditDate.getTime());
 		out.writeLong(lastActivityDate.getTime());
+		out.writeLong(communityOwnedDate.getTime());
 		out.writeInt(commentCount);
 		out.writeInt(favoriteCount);
 		if (question) {
@@ -116,17 +179,20 @@ public class StackoverflowPost implements WritableComparable<StackoverflowPost>,
 				out.writeUTF(tag);
 			}
 			out.writeInt(answerCount);
-		}
-		else {
+			out.writeLong(closedDate.getTime());
+		} else {
 			out.writeInt(parentID);
 		}
 	}
 
-	/** Returns true iff <code>other</code> is a {@link StackoverflowPost} with the same value. */
+	/**
+	 * Returns true iff <code>other</code> is a {@link StackoverflowPost} with
+	 * the same value.
+	 */
 	public boolean equals(Object other) {
 		if (!(other instanceof StackoverflowPost))
 			return false;
-		return this.id == ((StackoverflowPost)other).id;
+		return this.id == ((StackoverflowPost) other).id;
 	}
 
 	public int hashCode() {
@@ -137,7 +203,7 @@ public class StackoverflowPost implements WritableComparable<StackoverflowPost>,
 	public int compareTo(StackoverflowPost o) {
 		return Integer.compare(id, o.id);
 	}
-	
+
 	@Override
 	public String toString() {
 		return "StackoverflowPost [id=" + id + ", question=" + question
@@ -230,6 +296,14 @@ public class StackoverflowPost implements WritableComparable<StackoverflowPost>,
 		this.ownerUserId = ownerUserId;
 	}
 
+	public String getOwnerDisplayName() {
+		return ownerDisplayName;
+	}
+
+	public void setOwnerDisplayName(String ownerDisplayName) {
+		this.ownerDisplayName = ownerDisplayName;
+	}
+
 	public int getLastEditorUserId() {
 		return lastEditorUserId;
 	}
@@ -262,6 +336,22 @@ public class StackoverflowPost implements WritableComparable<StackoverflowPost>,
 		this.lastActivityDate = lastActivityDate;
 	}
 
+	public Date getClosedDate() {
+		return closedDate;
+	}
+
+	public void setClosedDate(Date closedDate) {
+		this.closedDate = closedDate;
+	}
+
+	public Date getCommunityOwnedDate() {
+		return communityOwnedDate;
+	}
+
+	public void setCommunityOwnedDate(Date communityOwnedDate) {
+		this.communityOwnedDate = communityOwnedDate;
+	}
+
 	public String getTitle() {
 		return title;
 	}
@@ -277,7 +367,11 @@ public class StackoverflowPost implements WritableComparable<StackoverflowPost>,
 	public void setTags(List<String> tags) {
 		this.tags = tags;
 	}
-	
+
+	public void setTags(String tags) {
+		this.tags.addAll(Arrays.asList(tags.split(" ")));
+	}
+
 	public void addTag(String tag) {
 		tags.add(tag);
 	}
