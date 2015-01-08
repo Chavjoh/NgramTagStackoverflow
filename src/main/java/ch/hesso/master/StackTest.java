@@ -25,6 +25,8 @@ import ch.hesso.master.utils.StringToIntMapWritable;
 
 public class StackTest extends Configured implements Tool {
 
+	private final static Integer MAX_BUFFER_SIZE = 100000;
+	
 	private int numReducers;
 	private Path inputPath;
 	private Path outputPath;
@@ -48,6 +50,7 @@ public class StackTest extends Configured implements Tool {
 	public static class StackTestMapper extends Mapper<LongWritable, StackoverflowPost, Text, StringToIntMapWritable> {
 		
 		private HashMap<String, StringToIntMapWritable> map;
+		private int size = 0;
 		
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
@@ -69,18 +72,28 @@ public class StackTest extends Configured implements Tool {
 					map.put(tokens[i], stripes);
 				}
 				
-				stripes.increment(tokens[i+1]);		
+				stripes.increment(tokens[i+1]);	
+				size++;	
 			}
 			
-			// TODO: Send data when memory we are out of memory
+			// Send data when we are out of memory
+			if (size > MAX_BUFFER_SIZE) {
+				sendMap(context);
+			}
 		}
 				
 		@Override
 		protected void cleanup(Context context) throws IOException, InterruptedException {	
+			sendMap(context);
+			super.cleanup(context);
+		}
+		
+		private void sendMap(Context context) throws IOException, InterruptedException {
 			for (Entry<String, StringToIntMapWritable> entry : map.entrySet())
 				context.write(new Text(entry.getKey()), entry.getValue());
 			
-			super.cleanup(context);
+			map.clear();
+			size = 0;
 		}
 	}
 
