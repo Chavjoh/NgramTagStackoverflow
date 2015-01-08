@@ -57,7 +57,7 @@ public class StackoverflowTags implements WritableComparable<StackoverflowTags>,
 		if (this == other) {
 			return 0;
 		}
-		return Integer.compare(this.tags.length, other.tags.length);
+		return (this.tags.length < other.tags.length) ? -1 : ((this.tags.length == other.tags.length) ? 0 : 1);
 	}
 
 	@Override

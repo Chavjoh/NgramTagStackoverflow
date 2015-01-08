@@ -198,7 +198,7 @@ public class StackoverflowPost implements
 	}
 
 	public int compareTo(StackoverflowPost o) {
-		return Integer.compare(id, o.id);
+		return (id < o.id) ? -1 : ((id == o.id) ? 0 : 1);
 	}
 
 	@Override
