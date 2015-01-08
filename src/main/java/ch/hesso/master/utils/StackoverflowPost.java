@@ -8,8 +8,6 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
-import java.lang.Integer;
-
 import org.apache.hadoop.io.WritableComparable;
 
 public class StackoverflowPost implements
@@ -199,12 +197,9 @@ public class StackoverflowPost implements
 		return id;
 	}
 
-	@Override
 	public int compareTo(StackoverflowPost o) {
 		return Integer.compare(id, o.id);
 	}
-
-
 
 	@Override
 	public String toString() {
@@ -260,7 +255,6 @@ public class StackoverflowPost implements
 		return builder.toString();
 	}
 
-	@Override
 	public Iterator<String> iterator() {
 		return tags.iterator();
 	}
@@ -410,8 +404,8 @@ public class StackoverflowPost implements
 	}
 
 	public void setTags(String tags) {
-		System.out.println(tags);
 		this.tags.addAll(Arrays.asList(tags.substring(1, tags.length() - 1).split("><")));
+		System.out.println(this.tags);
 	}
 
 	public void addTag(String tag) {

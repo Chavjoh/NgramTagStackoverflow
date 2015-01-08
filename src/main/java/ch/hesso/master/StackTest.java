@@ -2,6 +2,7 @@ package ch.hesso.master;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.mapreduce.Job;
@@ -76,6 +77,8 @@ public class StackTest extends Configured implements Tool {
 		job.setNumReduceTasks(numReducers);
 
 		job.setJarByClass(StackTest.class);
+		
+		FileSystem.get(conf).delete(outputPath, true);
 		
 		return job.waitForCompletion(true) ? 0 : 1;
 	}
