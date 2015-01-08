@@ -13,6 +13,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
@@ -99,6 +100,30 @@ public class StackTest extends Configured implements Tool {
 
 	public static class StackTestReducer extends Reducer<Text, StringToIntMapWritable, Text, StringToIntMapWritable> {
 
+		private StringToIntMapWritable stripes;
+		
+		@Override
+		protected void setup(Context context) throws IOException, InterruptedException {
+			super.setup(context);
+			stripes = new StringToIntMapWritable();
+		}
+		
+		@Override
+		public void reduce(Text key, Iterable<StringToIntMapWritable> values, Context context) throws IOException, InterruptedException {
+			stripes.clear();
+
+			for (StringToIntMapWritable value : values) {	
+				stripes.sum(value);
+			}
+			
+			context.write(key, stripes);
+		}
+		
+		@Override
+		protected void cleanup(Context context) throws IOException, InterruptedException {	
+			super.cleanup(context);
+		}
+		
 	}
 
 	public int run(String[] args) throws Exception {
