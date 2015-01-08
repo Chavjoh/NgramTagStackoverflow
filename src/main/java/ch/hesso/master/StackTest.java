@@ -13,9 +13,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -30,7 +28,9 @@ public class StackTest extends Configured implements Tool {
 	
 	private int numReducers;
 	private Path inputPath;
-	private Path outputPath;
+	private String outputPath;
+	private Integer ngramStart;
+	private Integer ngramStop;
 	
 	/**
 	 * Stripes Constructor.
@@ -38,25 +38,35 @@ public class StackTest extends Configured implements Tool {
 	 * @param args
 	 */
 	public StackTest(String[] args) {
-		if (args.length != 3) {
-			System.out.println("Usage: Ngram <num_reducers> <input_path> <output_path>");
+		if (args.length != 5) {
+			System.out.println("Usage: Ngram <ngram_start> <ngram_stop> <num_reducers> <input_path> <output_path>");
 			System.exit(0);
 		}
 		
-		numReducers = Integer.parseInt(args[0]);
-		inputPath = new Path(args[1]);
-		outputPath = new Path(args[2]);
+		ngramStart = Integer.parseInt(args[0]);
+		ngramStop = Integer.parseInt(args[1]);
+		numReducers = Integer.parseInt(args[2]);
+		inputPath = new Path(args[3]);
+		outputPath = args[4];
+		
+		if (ngramStart < 0 || ngramStart > ngramStop) {
+			System.out.println("Value error for <ngram_start> or <ngram_stop>");
+		}
 	}
 	
-	public static class StackTestMapper extends Mapper<LongWritable, StackoverflowPost, Text, StringToIntMapWritable> {
+	public static class StackTestMapper extends Mapper<LongWritable, StackoverflowPost, ArrayListWritable<Text>, StringToIntMapWritable> {
 		
-		private HashMap<String, StringToIntMapWritable> map;
-		private int size = 0;
+		private HashMap<ArrayListWritable<Text>, StringToIntMapWritable> map;
+		private ArrayListWritable<Text> ngramKey;
+		private int size;
+		private int n;
 		
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
 			super.setup(context);
-			map = new HashMap<String, StringToIntMapWritable>();
+			n = context.getConfiguration().getInt("N", 1);
+			map = new HashMap<ArrayListWritable<Text>, StringToIntMapWritable>();
+			size = 0;
 		}
 
 		@Override
@@ -65,15 +75,23 @@ public class StackTest extends Configured implements Tool {
 			String[] tokens = new String[value.getTags().size()];
 			value.getTags().toArray(tokens);
 			
-			for (int i = 0; i < tokens.length-1; i++) {
-				StringToIntMapWritable stripes = map.get(tokens[i]);
+			for (int i = 0; i < tokens.length - n; i++) {
+				ngramKey = new ArrayListWritable<Text>(); // No other way, need instantiation
+				
+				for (int j = 0; j < n; j++) {
+					ngramKey.add(new Text(tokens[i+j]));
+				}
+				
+				//System.out.println(ngramKey + " -> " + tokens[i+n]);
+				
+				StringToIntMapWritable stripes = map.get(ngramKey);
 				
 				if (stripes == null) {
 					stripes = new StringToIntMapWritable();
-					map.put(tokens[i], stripes);
+					map.put(ngramKey, stripes);
 				}
 				
-				stripes.increment(tokens[i+1]);	
+				stripes.increment(tokens[i+n]);
 				size++;	
 			}
 			
@@ -90,15 +108,16 @@ public class StackTest extends Configured implements Tool {
 		}
 		
 		private void sendMap(Context context) throws IOException, InterruptedException {
-			for (Entry<String, StringToIntMapWritable> entry : map.entrySet())
-				context.write(new Text(entry.getKey()), entry.getValue());
+			for (Entry<ArrayListWritable<Text>, StringToIntMapWritable> entry : map.entrySet()) {
+				context.write(entry.getKey(), entry.getValue());
+			}
 			
 			map.clear();
 			size = 0;
 		}
 	}
 
-	public static class StackTestReducer extends Reducer<Text, StringToIntMapWritable, Text, StringToIntMapWritable> {
+	public static class StackTestReducer extends Reducer<ArrayListWritable<Text>, StringToIntMapWritable, ArrayListWritable<Text>, StringToIntMapWritable> {
 
 		private StringToIntMapWritable stripes;
 		
@@ -109,9 +128,11 @@ public class StackTest extends Configured implements Tool {
 		}
 		
 		@Override
-		public void reduce(Text key, Iterable<StringToIntMapWritable> values, Context context) throws IOException, InterruptedException {
+		public void reduce(ArrayListWritable<Text> key, Iterable<StringToIntMapWritable> values, Context context) throws IOException, InterruptedException {
 			stripes.clear();
 
+			//System.out.println(key);
+			
 			for (StringToIntMapWritable value : values) {	
 				stripes.sum(value);
 			}
@@ -128,38 +149,46 @@ public class StackTest extends Configured implements Tool {
 
 	public int run(String[] args) throws Exception {
 
+		boolean result = false;
+		
+		for (int n = ngramStart; n <= ngramStop; n++) {
+			result &= launchNgram(n);
+		}
+		
+		return result ? 0 : 1;
+	}
+	
+	private boolean launchNgram(int iteration) throws IOException, ClassNotFoundException, InterruptedException {
+		
 		Configuration conf = getConf();
+		conf.setInt("N", iteration);
+		
+		Path output = new Path(outputPath + iteration);
+		
 		Job job = new Job(conf, "StackTest");
 
 		job.setMapperClass(StackTestMapper.class);
 		job.setReducerClass(StackTestReducer.class);
 
-		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputKeyClass(ArrayListWritable.class);
 		job.setMapOutputValueClass(StringToIntMapWritable.class);
 
-		job.setOutputKeyClass(Text.class);
+		job.setOutputKeyClass(ArrayListWritable.class);
 		job.setOutputValueClass(StringToIntMapWritable.class);
 
 		StackoverflowXMLInputFormat.addInputPath(job, inputPath);
 		job.setInputFormatClass(StackoverflowXMLInputFormat.class);
 
-		FileOutputFormat.setOutputPath(job, outputPath);
-		
-		boolean useTextOutputFormat = !false;
-		if (useTextOutputFormat) {
-			job.setOutputFormatClass(TextOutputFormat.class);
-		}
-		else {
-			job.setOutputFormatClass(SequenceFileOutputFormat.class);
-		}
+		FileOutputFormat.setOutputPath(job, output);
+		job.setOutputFormatClass(TextOutputFormat.class);
 
 		job.setNumReduceTasks(numReducers);
 
 		job.setJarByClass(StackTest.class);
 		
-		FileSystem.get(conf).delete(outputPath, true);
+		FileSystem.get(conf).delete(output, true);
 		
-		return job.waitForCompletion(true) ? 0 : 1;
+		return job.waitForCompletion(true);
 	}
 
 	public static void main(String[] args) throws Exception {

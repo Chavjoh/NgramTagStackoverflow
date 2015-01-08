@@ -405,7 +405,7 @@ public class StackoverflowPost implements
 
 	public void setTags(String tags) {
 		this.tags.addAll(Arrays.asList(tags.substring(1, tags.length() - 1).split("><")));
-		System.out.println(this.tags);
+		//System.out.println(this.tags);
 	}
 
 	public void addTag(String tag) {
