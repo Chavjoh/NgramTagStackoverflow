@@ -21,13 +21,14 @@ import org.apache.hadoop.util.ToolRunner;
 
 import ch.hesso.master.utils.StackoverflowPost;
 import ch.hesso.master.utils.StackoverflowXMLInputFormat;
-import ch.hesso.master.utils.StringToIntMapWritable;
+import ch.hesso.master.utils.Utils;
 
 public class TagsCount extends Configured implements Tool {
 	
 	private int numReducers;
 	private Path inputPath;
 	private Path outputPath;
+	private Path outputPathOrdered;
 	
 	/**
 	 * Stripes Constructor.
@@ -42,7 +43,11 @@ public class TagsCount extends Configured implements Tool {
 		
 		numReducers = Integer.parseInt(args[0]);
 		inputPath = new Path(args[1]);
-		outputPath = new Path(args[2]);
+		String output = args[2];
+
+		
+		outputPath = new Path(output);
+		outputPathOrdered = new Path(output + "-ordered");
 	}
 	
 	static class TagsCountMapper extends Mapper<LongWritable, StackoverflowPost, Text, IntWritable> {
@@ -95,9 +100,55 @@ public class TagsCount extends Configured implements Tool {
 			super.cleanup(context);
 		}
 	}
+	
+	static class TagsCountOrderMapper extends Mapper<LongWritable, Text, IntWritable, Text> {
+		
+		private IntWritable intValue;
+		private Text textValue;
+		
+		@Override
+		protected void setup(Context context) throws IOException, InterruptedException {
+			super.setup(context);
 
+			textValue = new Text();
+			intValue = new IntWritable();
+		}
+		
+		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+			String[] lineValue = Utils.words(value.toString());
+			textValue.set(lineValue[0]);
+			intValue.set(Integer.parseInt(lineValue[1]));
+			context.write(intValue, textValue);
+		}
+		
+		@Override
+		protected void cleanup(Context context) throws IOException, InterruptedException {
+			super.cleanup(context);
+		}
+		
+	}
+	
+	static class TagsCountOrderReducer extends Reducer<IntWritable, Text, Text, IntWritable> {
+		
+		@Override
+		protected void reduce(IntWritable key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+			for (Text text:values) {
+				context.write(text, key);
+			}
+		}
+		
+	}
 
 	public int run(String[] args) throws Exception {
+		boolean result = false;
+		
+		result &= launchTagsCount();
+		result &= launchTagsCountOrder();
+		
+		return (result) ? 0 : 1;
+	}
+	
+	private boolean launchTagsCount() throws IOException, ClassNotFoundException, InterruptedException {
 		Configuration conf = getConf();
 		Job job = new Job(conf, "TagsCount");
 
@@ -122,7 +173,34 @@ public class TagsCount extends Configured implements Tool {
 		
 		FileSystem.get(conf).delete(outputPath, true);
 		
-		return job.waitForCompletion(true) ? 0 : 1;
+		return job.waitForCompletion(true);
+	}
+	
+	private boolean launchTagsCountOrder() throws IOException, ClassNotFoundException, InterruptedException {
+		Configuration conf = getConf();
+		Job job = new Job(conf, "TagsCountOrder");
+
+		job.setMapperClass(TagsCountOrderMapper.class);
+		job.setReducerClass(TagsCountOrderReducer.class);
+
+		job.setMapOutputKeyClass(IntWritable.class);
+		job.setMapOutputValueClass(Text.class);
+
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(IntWritable.class);
+
+		StackoverflowXMLInputFormat.addInputPath(job, outputPath);
+
+		FileOutputFormat.setOutputPath(job, outputPathOrdered);
+		job.setOutputFormatClass(TextOutputFormat.class);
+
+		job.setNumReduceTasks(numReducers);
+
+		job.setJarByClass(TagsCount.class);
+		
+		FileSystem.get(conf).delete(outputPathOrdered, true);
+		
+		return job.waitForCompletion(true);
 	}
 
 	public static void main(String[] args) throws Exception {
