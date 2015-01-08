@@ -3,18 +3,13 @@ package ch.hesso.master.utils;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
 
 import org.apache.hadoop.io.WritableComparable;
 
-public class StackoverflowTags implements
-		WritableComparable<StackoverflowTags>, Iterable<String>,
-		Comparable<StackoverflowTags> {
-	
-	private List<String> tags;
+public class StackoverflowTags implements WritableComparable<StackoverflowTags>, Comparable<StackoverflowTags> {
+
+	private String[] tags;
 
 	public StackoverflowTags() {
 		reset();
@@ -22,31 +17,26 @@ public class StackoverflowTags implements
 
 	public StackoverflowTags(StackoverflowTags other) {
 		this();
-		tags.addAll(other.tags);
+		tags = Arrays.copyOf(other.tags, other.tags.length);
 	}
 
 	public void reset() {
-		if (tags == null) {
-			this.tags = new ArrayList<String>();
-		} else {
-			tags.clear();
-		}
+		this.tags = null;
 	}
 
 	public void readFields(DataInput in) throws IOException {
-			int nbTags = in.readInt();
-			tags = new ArrayList<String>(nbTags);
-			for (int i = 0; i < nbTags; ++i) {
-				tags.add(in.readUTF());
-			}
+		int nbTags = in.readInt();
+		tags = new String[nbTags];
+		for (int i = 0; i < nbTags; ++i) {
+			tags[i] = in.readUTF();
+		}
 	}
 
 	public void write(DataOutput out) throws IOException {
-		
-			out.writeInt(tags.size());
-			for (String tag : tags) {
-				out.writeUTF(tag);
-			}
+		out.writeInt(tags.length);
+		for (int i = 0; i < tags.length; ++i) {
+			out.writeUTF(tags[i]);
+		}
 	}
 
 	/**
@@ -56,7 +46,7 @@ public class StackoverflowTags implements
 	public boolean equals(Object other) {
 		if (!(other instanceof StackoverflowTags))
 			return false;
-		return tags.equals(((StackoverflowTags)other).tags);
+		return Arrays.equals(tags, ((StackoverflowTags) other).tags);
 	}
 
 	public int hashCode() {
@@ -67,7 +57,7 @@ public class StackoverflowTags implements
 		if (this == other) {
 			return 0;
 		}
-		return Integer.compare(this.tags.size(), other.tags.size());
+		return Integer.compare(this.tags.length, other.tags.length);
 	}
 
 	@Override
@@ -79,25 +69,11 @@ public class StackoverflowTags implements
 		return builder.toString();
 	}
 
-	public Iterator<String> iterator() {
-		return tags.iterator();
-	}
-	
-	public List<String> getTags() {
+	public String[] getTags() {
 		return tags;
 	}
 
-	public void setTags(List<String> tags) {
-		this.tags = tags;
-	}
-
 	public void setTags(String tags) {
-		this.tags.addAll(Arrays.asList(tags.substring(1, tags.length() - 1).split("><")));
-		System.out.println(this.tags);
+		this.tags = tags.substring(1, tags.length() - 1).split("><");
 	}
-
-	public void addTag(String tag) {
-		tags.add(tag);
-	}
-	
 }
