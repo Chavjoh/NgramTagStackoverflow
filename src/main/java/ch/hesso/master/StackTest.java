@@ -1,10 +1,15 @@
 package ch.hesso.master;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map.Entry;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -16,6 +21,7 @@ import org.apache.hadoop.util.ToolRunner;
 
 import ch.hesso.master.utils.StackoverflowPost;
 import ch.hesso.master.utils.StackoverflowXMLInputFormat;
+import ch.hesso.master.utils.StringToIntMapWritable;
 
 public class StackTest extends Configured implements Tool {
 
@@ -39,11 +45,46 @@ public class StackTest extends Configured implements Tool {
 		outputPath = new Path(args[2]);
 	}
 	
-	public static class StackTestMapper extends Mapper<LongWritable, StackoverflowPost, LongWritable, StackoverflowPost> {
+	public static class StackTestMapper extends Mapper<LongWritable, StackoverflowPost, Text, StringToIntMapWritable> {
 		
+		private HashMap<String, StringToIntMapWritable> map;
+		
+		@Override
+		protected void setup(Context context) throws IOException, InterruptedException {
+			super.setup(context);
+			map = new HashMap<String, StringToIntMapWritable>();
+		}
+
+		@Override
+		public void map(LongWritable key, StackoverflowPost value, Context context) throws java.io.IOException, InterruptedException {
+
+			String[] tokens = new String[value.getTags().size()];
+			value.getTags().toArray(tokens);
+			
+			for (int i = 0; i < tokens.length-1; i++) {
+				StringToIntMapWritable stripes = map.get(tokens[i]);
+				
+				if (stripes == null) {
+					stripes = new StringToIntMapWritable();
+					map.put(tokens[i], stripes);
+				}
+				
+				stripes.increment(tokens[i+1]);		
+			}
+			
+			// TODO: Send data when memory we are out of memory
+		}
+				
+		@Override
+		protected void cleanup(Context context) throws IOException, InterruptedException {	
+			for (Entry<String, StringToIntMapWritable> entry : map.entrySet())
+				context.write(new Text(entry.getKey()), entry.getValue());
+			
+			super.cleanup(context);
+		}
 	}
 
-	public static class StackTestReducer extends Reducer<LongWritable, StackoverflowPost, LongWritable, StackoverflowPost> {
+	public static class StackTestReducer extends Reducer<Text, StringToIntMapWritable, Text, StringToIntMapWritable> {
 
 	}
 
@@ -55,11 +96,11 @@ public class StackTest extends Configured implements Tool {
 		job.setMapperClass(StackTestMapper.class);
 		job.setReducerClass(StackTestReducer.class);
 
-		job.setMapOutputKeyClass(LongWritable.class);
-		job.setMapOutputValueClass(StackoverflowPost.class);
+		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputValueClass(StringToIntMapWritable.class);
 
-		job.setOutputKeyClass(LongWritable.class);
-		job.setOutputValueClass(StackoverflowPost.class);
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(StringToIntMapWritable.class);
 
 		StackoverflowXMLInputFormat.addInputPath(job, inputPath);
 		job.setInputFormatClass(StackoverflowXMLInputFormat.class);
