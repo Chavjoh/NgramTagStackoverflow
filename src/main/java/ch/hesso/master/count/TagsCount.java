@@ -53,6 +53,8 @@ public class TagsCount extends Configured implements Tool {
 	static class TagsCountMapper extends Mapper<LongWritable, StackoverflowPost, Text, IntWritable> {
 		
 		private HashMap<String, Integer> map;
+		private final Text TEXT = new Text();
+		private final IntWritable INT = new IntWritable();
 
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
@@ -68,9 +70,12 @@ public class TagsCount extends Configured implements Tool {
 		
 		@Override
 		protected void cleanup(Context context) throws IOException, InterruptedException {	
-			for(Entry<String, Integer> entry : map.entrySet())
-				context.write(new Text(entry.getKey()), new IntWritable(entry.getValue()));
 			
+			for(Entry<String, Integer> entry : map.entrySet()){
+				TEXT.set(entry.getKey());
+				INT.set(entry.getValue());
+				context.write(TEXT, INT);
+			}
 			super.cleanup(context);
 		}
 		

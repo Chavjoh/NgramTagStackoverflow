@@ -54,7 +54,7 @@ public class Ngram extends Configured implements Tool {
 		}
 	}
 	
-	public static class StackTestMapper extends Mapper<NullWritable, StackoverflowTags, ArrayListWritable<Text>, StringToIntMapWritable> {
+	public static class NgramMapper extends Mapper<NullWritable, StackoverflowTags, ArrayListWritable<Text>, StringToIntMapWritable> {
 		
 		private HashMap<ArrayListWritable<Text>, StringToIntMapWritable> map;
 		private ArrayListWritable<Text> ngramKey;
@@ -115,7 +115,7 @@ public class Ngram extends Configured implements Tool {
 		}
 	}
 
-	public static class StackTestReducer extends Reducer<ArrayListWritable<Text>, StringToIntMapWritable, ArrayListWritable<Text>, StringToIntMapWritable> {
+	public static class NgramReducer extends Reducer<ArrayListWritable<Text>, StringToIntMapWritable, ArrayListWritable<Text>, StringToIntMapWritable> {
 
 		private StringToIntMapWritable stripes;
 		
@@ -163,10 +163,10 @@ public class Ngram extends Configured implements Tool {
 		
 		Path output = new Path(outputPath + "_" + iteration);
 		
-		Job job = new Job(conf, "StackTest");
+		Job job = new Job(conf, "Ngram");
 
-		job.setMapperClass(StackTestMapper.class);
-		job.setReducerClass(StackTestReducer.class);
+		job.setMapperClass(NgramMapper.class);
+		job.setReducerClass(NgramReducer.class);
 
 		job.setMapOutputKeyClass(ArrayListWritable.class);
 		job.setMapOutputValueClass(StringToIntMapWritable.class);
