@@ -1,10 +1,12 @@
 package ch.hesso.master.graph;
 
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Paint;
 import java.awt.Shape;
+import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.io.BufferedReader;
@@ -17,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 
 import javax.swing.JFrame;
 
@@ -28,6 +31,7 @@ import edu.uci.ics.jung.algorithms.layout.KKLayout;
 import edu.uci.ics.jung.algorithms.layout.Layout;
 import edu.uci.ics.jung.graph.Graph;
 import edu.uci.ics.jung.graph.SparseGraph;
+import edu.uci.ics.jung.graph.util.EdgeType;
 import edu.uci.ics.jung.visualization.BasicVisualizationServer;
 import edu.uci.ics.jung.visualization.Layer;
 import edu.uci.ics.jung.visualization.decorators.ToStringLabeller;
@@ -121,6 +125,11 @@ public class GraphView {
 		/**
 		 * LOAD LINKS
 		 */
+		  
+	   int currentTotal;
+	   
+	   // Used to get the best probability tag after current
+	   TreeMap<Integer, String> nextTagOccurence = new TreeMap<Integer, String>();
 		
 		br = new BufferedReader(new FileReader(bigramPath));
 		while ((line = br.readLine()) != null) {
@@ -129,14 +138,35 @@ public class GraphView {
 		   //System.out.println(mainTag);
 		   List<Tag> listAssociatedTag = mapTag.get(mainTag);
 		   
+		   currentTotal = 0;
+		   nextTagOccurence.clear();
+		   
 		   if (listAssociatedTag != null) {
 			   String[] listTag = data[1].split(", ");
 			   for (int i = 0; i < listTag.length; i++) {
-				   //System.out.println(listTag[i].split("=")[0]);
-				   Tag tag = new Tag(listTag[i].split("=")[0].trim());
+				   String[] dataTag = listTag[i].split("=");
+				   Tag tag = new Tag(dataTag[0], Integer.parseInt(dataTag[1]));
 				   listAssociatedTag.add(tag);
+				   
+				   
+				   if (nextTagOccurence.get(tag.getOccurence()) != null) {
+					   nextTagOccurence.put(tag.getOccurence(), tag.getName() + ", " + nextTagOccurence.get(tag.getOccurence()));
+				   } else {
+					   nextTagOccurence.put(tag.getOccurence(), tag.getName());
+				   }
+				   currentTotal += tag.getOccurence();
+				   //System.out.println(mainTag.getName() + " -> " + tag.getName() + " = " + tag.getOccurence());
 			   }
 			   //System.out.println(data[0] + " -> " + data[1]);
+		   }
+		   
+		   if (listAssociatedTag != null) {
+			   System.out.println(mainTag.toString() + "(" + currentTotal + ")" + nextTagOccurence.toString());
+
+				ArrayList<Integer> keys = new ArrayList<Integer>(nextTagOccurence.keySet());
+				for (int i = keys.size() - 1; i >= 0; i--) {
+					System.out.println(" - (" + ((float)keys.get(i) / currentTotal) * 100 + "%) " + nextTagOccurence.get(keys.get(i)));
+				}
 		   }
 		}
 		br.close();
@@ -148,18 +178,16 @@ public class GraphView {
 				return Integer.toString(++i);
 			}
 		};
-			
-		// Graph<V, E> where V is the type of the vertices and E is the type of
-		// the edges
-		// Note showing the use of a SparseGraph rather than a SparseMultigraph
+		
 		g = new SparseGraph<String, String>();
 		
 		for (Entry<Tag, List<Tag>> entry:mapTag.entrySet()) {
-			//System.out.println(entry.getKey() + " ==> " + entry.getValue().toString());
 			g.addVertex(entry.getKey().toString());
 			
 			for (Tag currentTag:entry.getValue()) {
-				g.addEdge(edgeFactory.create(), entry.getKey().toString(), currentTag.getName());
+				if (mapTag.get(currentTag) != null) {
+					g.addEdge(edgeFactory.create(), entry.getKey().toString(), currentTag.getName(), EdgeType.DIRECTED);
+				}
 			}
 		}
 	}
@@ -175,17 +203,17 @@ public class GraphView {
 		
 		Dimension dimension = new Dimension(1000, 1000);
 		
-		final GraphView sgv = new GraphView(listTagPath, bigramPath); // This builds the graph
-		// Layout<V, E>, BasicVisualizationServer<V,E>
+		/**
+		 * BUILD THE GRAPH
+		 */
+		final GraphView sgv = new GraphView(listTagPath, bigramPath);
 		Layout<String, String> layout = new KKLayout<String, String>(sgv.g);
 		layout.setSize(dimension);
 		BasicVisualizationServer<String, String> vv = new BasicVisualizationServer<String, String>(layout);
 		vv.setPreferredSize(dimension);
 		
-		// Transformer maps the vertex number to a vertex property
         Transformer<String, Paint> vertexColor = new Transformer<String, Paint>() {
             public Paint transform(String i) {
-                //if(i.equals("1")) return Color.GREEN;
                 return Color.WHITE;
             }
         };
@@ -203,13 +231,26 @@ public class GraphView {
             	scale = scale / total;
             	
                 Ellipse2D circle = new Ellipse2D.Double(scale * -60, scale * -60, scale * 120, scale * 120);
-                // in this case, the vertex is twice as large
                 return AffineTransform.getScaleInstance(2, 2).createTransformedShape(circle);
-                //else return circle;
             }
         };
         vv.getRenderContext().setVertexFillPaintTransformer(vertexColor);
         vv.getRenderContext().setVertexShapeTransformer(vertexSize);
+        
+        Transformer<String, Paint> edgePaint = new Transformer<String, Paint>() {
+            public Paint transform(String s) {
+                return Color.BLACK;
+            }
+        };
+
+        Transformer<String, Stroke> edgeStroke = new Transformer<String, Stroke>() {
+            public Stroke transform(String s) {
+                return new BasicStroke(1.0f /*, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10.0f, dash, 0.0f */);
+            }
+        };
+        
+        vv.getRenderContext().setEdgeDrawPaintTransformer(edgePaint);
+        vv.getRenderContext().setEdgeStrokeTransformer(edgeStroke);
 
         vv.getRenderContext().getMultiLayerTransformer().getTransformer(Layer.LAYOUT).setScale(1.2, 1.2, vv.getCenter());
         
@@ -227,26 +268,4 @@ public class GraphView {
 		frame.pack();
 		frame.setVisible(true); 
 	}
-	/*
-	private final static class VertexShapeSizeAspect<V, E> extends
-			AbstractVertexShapeTransformer<V> implements Transformer<V, Shape> {
-
-		public VertexShapeSizeAspect() {
-			setSizeTransformer(new Transformer<V, Integer>() {
-				public Integer transform(V v) {
-					return 50;
-				}
-			});
-			setAspectRatioTransformer(new Transformer<V, Float>() {
-				public Float transform(V v) {
-					return 1.0f;
-				}
-			});
-		}
-
-		public Shape transform(V v) {
-			return factory.getEllipse(v);
-		}
-	}
-	*/
 }
